@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/amito07/ems/internal/config"
+	"github.com/amito07/ems/internal/http/routes/rootRouter"
 )
 
 func main() {
@@ -21,12 +22,7 @@ func main() {
 
 	// database setup
 	// setup router
-	router := http.NewServeMux()
-
-	router.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Welcome to the EMS!"))
-	})
-	// setup server
+	router := rootrouter.RouterInit()
 
 	server := &http.Server{
 		Addr:    cfg.Addr,

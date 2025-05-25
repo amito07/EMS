@@ -9,8 +9,8 @@ import (
 func StudentMux() http.Handler{
 	studentMux := http.NewServeMux()
 
-	studentMux.Handle("/list", student.New())
-	studentMux.Handle("/create", student.Create())
+	studentMux.Handle("GET /list", student.New())
+	studentMux.Handle("POST /create", student.Create())
 	return http.StripPrefix("/api/v1/students", studentMux)
 
 }

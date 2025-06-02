@@ -60,6 +60,10 @@ func (r *StudentRepository) Update(student *models.Student) error {
 	return r.db.Save(student).Error
 }
 
+func (r *StudentRepository) UpdateMetaData(id uint, metadata map[string]interface{}) error {
+	 return r.db.Model(&models.Student{}).Where("id = ?", id).Updates(metadata).Error
+}
+
 // Delete soft deletes a student
 func (r *StudentRepository) Delete(id uint) error {
 	return r.db.Delete(&models.Student{}, id).Error

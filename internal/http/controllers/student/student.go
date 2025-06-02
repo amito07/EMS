@@ -164,3 +164,108 @@ func GetAll() http.HandlerFunc {
 		response.WriteResponse(w, http.StatusOK, "Students retrieved successfully", result)
 	}
 }
+
+func Update() http.HandlerFunc {
+	controller := NewStudentController()
+	 return func(w http.ResponseWriter, r *http.Request) {
+
+		// Extract ID from URL path
+		path := strings.TrimPrefix(r.URL.Path, "/students/update/")
+		idStr := strings.Split(path, "/")[2]
+		fmt.Println("ID to update:", idStr)
+
+		id, err := strconv.ParseUint(idStr, 10, 32)
+		if err != nil {
+			response.WriteResponse(w, http.StatusBadRequest, "Invalid student ID", response.GeneralErrorResponse(err))
+			return
+		}
+
+		// Retrieve the student by ID
+		isStudentExist, err := controller.studentRepo.GetByID(uint(id))
+
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				response.WriteResponse(w, http.StatusNotFound, "Student not found", nil)
+				return
+			}
+			response.WriteResponse(w, http.StatusInternalServerError, "Database error", response.GeneralErrorResponse(err))
+			return
+		}
+
+		fmt.Println("Existing student:", isStudentExist)
+
+		var student models.Student
+		decoderErr := json.NewDecoder(r.Body).Decode(&student)
+
+		if errors.Is(decoderErr, io.EOF) {
+			response.WriteResponse(w, http.StatusBadRequest, "Empty body", response.GeneralErrorResponse(err))
+			return
+		}
+
+		if decoderErr != nil {
+			response.WriteResponse(w, http.StatusBadRequest, "Invalid request body", response.GeneralErrorResponse(err))
+			return
+		}
+
+		// Validate the request body
+		if decoderErr := controller.validator.Struct(student); decoderErr != nil {
+			validateError := err.(validator.ValidationErrors)
+			response.WriteResponse(w, http.StatusBadRequest, "Validation error", response.ValidationErrorResponse(validateError))
+			return
+		}
+
+		fmt.Println("Student to update:", student.Email)
+
+		// cross check student email address
+		if isStudentExist.Email != student.Email {
+			response.WriteResponse(w, http.StatusBadRequest, "Email address not matched", nil)
+			return
+		}
+
+		// update the student
+		updateError := controller.studentRepo.UpdateMetaData(isStudentExist.ID, map[string]interface{}{"first_name": student.FirstName, "last_name": student.LastName})
+
+		if updateError != nil {
+			response.WriteResponse(w, http.StatusInternalServerError, "Failed to update student", response.GeneralErrorResponse(updateError))
+			return
+		}
+
+		response.WriteResponse(w, http.StatusOK, "Student updated successfully",  nil)
+
+	 }
+
+}
+
+func Delete() http.HandlerFunc {
+	controller := NewStudentController()
+	return func(w http.ResponseWriter, r *http.Request) {
+	// Extract ID from URL path
+	path := strings.TrimPrefix(r.URL.Path, "/students/delete/")
+	idStr := strings.Split(path, "/")[2]
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+	response.WriteResponse(w, http.StatusBadRequest, "Invalid student ID", response.GeneralErrorResponse(err))
+	return
+	}
+
+	// Check if student exists
+	_, err = controller.studentRepo.GetByID(uint(id))
+	if err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.WriteResponse(w, http.StatusNotFound, "Student not found", nil)
+		return
+	}
+	response.WriteResponse(w, http.StatusInternalServerError, "Database error", response.GeneralErrorResponse(err))
+	return
+	}
+
+	// Delete the student
+	if err := controller.studentRepo.Delete(uint(id)); err != nil {
+	response.WriteResponse(w, http.StatusInternalServerError, "Failed to delete student", response.GeneralErrorResponse(err))
+	return
+	}
+
+	response.WriteResponse(w, http.StatusOK, "Student deleted successfully", nil)
+	}
+}

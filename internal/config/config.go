@@ -12,11 +12,21 @@ type HTTPServer struct {
 	Addr string `yaml:"address" env-required:"true"`
 }
 
+type Database struct {
+	Host     string `yaml:"host" env:"DB_HOST" env-default:"localhost"`
+	Port     int    `yaml:"port" env:"DB_PORT" env-default:"5432"`
+	User     string `yaml:"user" env:"DB_USER" env-default:"ems_user"`
+	Password string `yaml:"password" env:"DB_PASSWORD" env-default:"ems_password"`
+	DBName   string `yaml:"dbname" env:"DB_NAME" env-default:"ems_db"`
+	SSLMode  string `yaml:"sslmode" env:"DB_SSLMODE" env-default:"disable"`
+}
+
 type Config struct {
 	Env         string `yaml:"env" env:"ENV" env-required:"true" env-default:"development"`
 	storagePath string 
 	ShutdownTimeout int `yaml:"shutdown_timeout" env-required:"true" env-default:"5"`
 	HTTPServer `yaml:"http_server"`
+	Database   `yaml:"database"`
 }
 
 func MustLoadConfig() *Config {

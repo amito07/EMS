@@ -3,3 +3,10 @@ storage_path: "storage/storage.db"
 shutdown_timeout: 5
 http_server:
   address: "localhost:5000"
+database:
+  host: "localhost"
+  port: 5432
+  user: "ems_user"
+  password: "ems_password"
+  dbname: "ems_db"
+  sslmode: "disable"

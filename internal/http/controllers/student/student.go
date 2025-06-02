@@ -3,27 +3,47 @@ package student
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
-	"github.com/amito07/ems/internal/structure"
+	"github.com/amito07/ems/internal/database"
+	"github.com/amito07/ems/internal/models"
+	"github.com/amito07/ems/internal/repository"
 	"github.com/amito07/ems/internal/utils/response"
 	"github.com/go-playground/validator/v10"
+	"gorm.io/gorm"
 )
 
-func New() http.HandlerFunc{
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Welcome to the EMS!"))
+type StudentController struct {
+	studentRepo *repository.StudentRepository
+	validator   *validator.Validate
+}
+
+func NewStudentController() *StudentController {
+	db := database.GetDB()
+	return &StudentController{
+		studentRepo: repository.NewStudentRepository(db),
+		validator:   validator.New(),
 	}
 }
 
-func Create() http.HandlerFunc{
+func New() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Welcome to the EMS Student API!"))
+	}
+}
 
-		var student structure.Student
+func Create() http.HandlerFunc {
+	controller := NewStudentController()
+	return func(w http.ResponseWriter, r *http.Request) {
+		var student models.Student
 		err := json.NewDecoder(r.Body).Decode(&student)
 
-		if errors.Is(err, io.EOF){
+		if errors.Is(err, io.EOF) {
 			response.WriteResponse(w, http.StatusBadRequest, "Empty body", response.GeneralErrorResponse(err))
 			return
 		}
@@ -33,15 +53,114 @@ func Create() http.HandlerFunc{
 			return
 		}
 
-		// validate the request body
-		if err := validator.New().Struct(student); err != nil {
-			validteError := err.(validator.ValidationErrors)
-			response.WriteResponse(w, http.StatusBadRequest, "Validation error", response.ValidationErrorResponse(validteError))
+		// Validate the request body
+		if err := controller.validator.Struct(student); err != nil {
+			validateError := err.(validator.ValidationErrors)
+			response.WriteResponse(w, http.StatusBadRequest, "Validation error", response.ValidationErrorResponse(validateError))
 			return
 		}
 
+		// Generate student ID if not provided
+		if student.StudentID == "" {
+			// Simple ID generation - in production you'd want something more sophisticated
+			student.StudentID = fmt.Sprintf("STU%03d", time.Now().Unix()%1000)
+		}
+
+		// Check if email already exists
+		existingStudent, err := controller.studentRepo.GetByEmail(student.Email)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			response.WriteResponse(w, http.StatusInternalServerError, "Database error", response.GeneralErrorResponse(err))
+			return
+		}
+		if existingStudent != nil {
+			response.WriteResponse(w, http.StatusConflict, "Student with this email already exists", nil)
+			return
+		}
+
+		// Create the student
+		if err := controller.studentRepo.Create(&student); err != nil {
+			response.WriteResponse(w, http.StatusInternalServerError, "Failed to create student", response.GeneralErrorResponse(err))
+			return
+		}
 
 		response.WriteResponse(w, http.StatusCreated, "Student created successfully", student)
+	}
+}
+
+func GetByID() http.HandlerFunc {
+	controller := NewStudentController()
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract ID from URL path
+		path := strings.TrimPrefix(r.URL.Path, "/students/")
+		idStr := strings.Split(path, "/")[0]
 		
+		id, err := strconv.ParseUint(idStr, 10, 32)
+		if err != nil {
+			response.WriteResponse(w, http.StatusBadRequest, "Invalid student ID", response.GeneralErrorResponse(err))
+			return
+		}
+
+		student, err := controller.studentRepo.GetByID(uint(id))
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				response.WriteResponse(w, http.StatusNotFound, "Student not found", nil)
+				return
+			}
+			response.WriteResponse(w, http.StatusInternalServerError, "Database error", response.GeneralErrorResponse(err))
+			return
+		}
+
+		response.WriteResponse(w, http.StatusOK, "Student retrieved successfully", student)
+	}
+}
+
+func GetAll() http.HandlerFunc {
+	controller := NewStudentController()
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get pagination parameters
+		pageStr := r.URL.Query().Get("page")
+		limitStr := r.URL.Query().Get("limit")
+
+		page := 1
+		limit := 10
+
+		if pageStr != "" {
+			if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+				page = p
+			}
+		}
+
+		if limitStr != "" {
+			if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+				limit = l
+			}
+		}
+
+		offset := (page - 1) * limit
+
+		students, err := controller.studentRepo.GetAll(offset, limit)
+		if err != nil {
+			response.WriteResponse(w, http.StatusInternalServerError, "Failed to retrieve students", response.GeneralErrorResponse(err))
+			return
+		}
+
+		// Get total count for pagination info
+		total, err := controller.studentRepo.Count()
+		if err != nil {
+			response.WriteResponse(w, http.StatusInternalServerError, "Failed to count students", response.GeneralErrorResponse(err))
+			return
+		}
+
+		result := map[string]interface{}{
+			"students": students,
+			"pagination": map[string]interface{}{
+				"page":       page,
+				"limit":      limit,
+				"total":      total,
+				"totalPages": (total + int64(limit) - 1) / int64(limit),
+			},
+		}
+
+		response.WriteResponse(w, http.StatusOK, "Students retrieved successfully", result)
 	}
 }

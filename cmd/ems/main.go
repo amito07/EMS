@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/amito07/ems/internal/config"
-	"github.com/amito07/ems/internal/http/routes/rootRouter"
+	"github.com/amito07/ems/internal/database"
+	rootrouter "github.com/amito07/ems/internal/http/routes/rootRouter"
 )
 
 func main() {
@@ -20,7 +21,13 @@ func main() {
 	// Load the configuration
 	cfg := config.MustLoadConfig()
 
-	// database setup
+	// Initialize database connection
+	err := database.InitDatabase(cfg)
+	if err != nil {
+		slog.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
+	}
+
 	// setup router
 	router := rootrouter.RouterInit()
 

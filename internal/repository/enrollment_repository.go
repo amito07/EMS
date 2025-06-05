@@ -1,12 +1,20 @@
 package repository
 
 import (
+	"fmt"
+
 	"github.com/amito07/ems/internal/models"
 	"gorm.io/gorm"
 )
 
 type EnrollmentRepository struct {
 	db *gorm.DB
+}
+
+type CustomStudentResponse struct {
+	FirstName string `json:"first_name"`
+	Email     string `json:"email"`
+	StudentID string `json:"student_id"`
 }
 
 func NewEnrollmentRepository(db *gorm.DB) *EnrollmentRepository {
@@ -53,9 +61,9 @@ func (r *EnrollmentRepository) GetByCourseID(courseID uint) ([]models.Enrollment
 }
 
 // GetAll retrieves all enrollments with pagination
-func (r *EnrollmentRepository) GetAll(offset, limit int) ([]models.Enrollment, error) {
+func (r *EnrollmentRepository) GetAll(limit int) ([]models.Enrollment, error) {
 	var enrollments []models.Enrollment
-	err := r.db.Offset(offset).Limit(limit).Preload("Student").Preload("Course").Find(&enrollments).Error
+	err := r.db.Limit(limit).Preload("Course").Find(&enrollments).Error
 	return enrollments, err
 }
 
@@ -81,4 +89,27 @@ func (r *EnrollmentRepository) GetEnrollmentsByStatus(status string, offset, lim
 	var enrollments []models.Enrollment
 	err := r.db.Where("status = ?", status).Offset(offset).Limit(limit).Preload("Student").Preload("Course").Find(&enrollments).Error
 	return enrollments, err
+}
+
+func (r *EnrollmentRepository) TestQuery() ([]CustomStudentResponse, error){
+	var students []CustomStudentResponse
+	// First approach using Select and Where
+
+	// err := r.db.Table("students").
+    //     Select("first_name, email, student_id").
+    //     Where("id IN ?", []int64{1, 3, 4}).
+    //     Find(&students).Error
+
+	// Second approach using Model and Select
+	err := r.db.Model(&models.Student{}).
+	 		Select("first_name, email, student_id").
+			Where("id IN ?", []int64{1, 3, 4}).
+			Find(&students).Error
+	if err != nil {
+		fmt.Println("Error.............")
+		return nil, err
+	}
+	fmt.Println("Student:", students)
+	return students, err
+
 }

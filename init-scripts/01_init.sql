@@ -37,11 +37,11 @@ CREATE TABLE IF NOT EXISTS courses (
 
 CREATE TABLE IF NOT EXISTS enrollments (
     id SERIAL PRIMARY KEY,
-    student_id INTEGER REFERENCES students(id),
-    course_id INTEGER REFERENCES courses(id),
-    enrollment_date DATE DEFAULT CURRENT_DATE,
-    grade VARCHAR(5),
+    student_id INTEGER NOT NULL REFERENCES students(id),
+    course_id INTEGER NOT NULL REFERENCES courses(id),
+    enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) DEFAULT 'active',
+    grade VARCHAR(5),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(student_id, course_id)
@@ -54,6 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_teachers_email ON teachers(email);
 CREATE INDEX IF NOT EXISTS idx_teachers_employee_id ON teachers(employee_id);
 CREATE INDEX IF NOT EXISTS idx_courses_code ON courses(course_code);
 CREATE INDEX IF NOT EXISTS idx_enrollments_student_course ON enrollments(student_id, course_id);
+
 
 -- Insert sample data
 INSERT INTO students (first_name, last_name, email, student_id) VALUES
@@ -73,6 +74,13 @@ INSERT INTO courses (course_code, course_name, credits, teacher_id) VALUES
     ('MATH201', 'Calculus I', 4, 2),
     ('PHYS101', 'General Physics', 3, 3)
 ON CONFLICT (course_code) DO NOTHING;
+
+INSERT INTO enrollments (student_id, course_id, status) VALUES
+    (1, 1, 'active'),
+    (1, 2, 'active'),
+    (2, 1, 'active'),
+    (3, 3, 'completed')
+ON CONFLICT (student_id, course_id) DO NOTHING;
 
 -- Grant permissions
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ems_user;

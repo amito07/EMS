@@ -58,9 +58,9 @@ CREATE INDEX IF NOT EXISTS idx_enrollments_student_course ON enrollments(student
 
 -- Insert sample data
 INSERT INTO students (first_name, last_name, email, student_id) VALUES
-    ('John', 'Doe', 'john.doe@email.com', 'STU001'),
-    ('Jane', 'Smith', 'jane.smith@email.com', 'STU002'),
-    ('Bob', 'Johnson', 'bob.johnson@email.com', 'STU003')
+    ('John', 'Doe', 'john.doe@email.com', 'STU001', 'password123'),
+    ('Jane', 'Smith', 'jane.smith@email.com', 'STU002', 'password123'),
+    ('Bob', 'Johnson', 'bob.johnson@email.com', 'STU003', 'password123')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO teachers (first_name, last_name, email, employee_id, department) VALUES

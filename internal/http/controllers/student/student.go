@@ -61,9 +61,9 @@ func Create() http.HandlerFunc {
 		}
 
 		// Generate student ID if not provided
-		if student.StudentID == "" {
+		if student.S_ID == "" {
 			// Simple ID generation - in production you'd want something more sophisticated
-			student.StudentID = fmt.Sprintf("STU%03d", time.Now().Unix()%1000)
+			student.S_ID = fmt.Sprintf("STU%03d", time.Now().Unix()%1000)
 		}
 
 		// Check if email already exists

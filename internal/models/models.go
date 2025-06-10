@@ -11,7 +11,7 @@ type Student struct {
 	LastName       string    `json:"last_name" gorm:"column:last_name;not null" validate:"required"`
 	Email          string    `json:"email" gorm:"uniqueIndex;not null" validate:"required,email"`
 	S_ID      string    `json:"s_id" gorm:"column:s_id;uniqueIndex;not null"`
-	Password       *string    `json:"-" gorm:"column:password;not null" validate:"required,min=6"`
+	Password       string    `json:"-" gorm:"column:password;not null" validate:"required,min=6"`
 	EnrollmentDate *time.Time `json:"enrollment_date" gorm:"column:enrollment_date;type:date;default:CURRENT_DATE"`
 	CreatedAt      time.Time `json:"created_at" gorm:"default:CURRENT_TIMESTAMP"`
 	UpdatedAt      time.Time `json:"updated_at" gorm:"default:CURRENT_TIMESTAMP"`

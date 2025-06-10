@@ -13,6 +13,9 @@ import (
 	"github.com/amito07/ems/internal/database"
 	"github.com/amito07/ems/internal/models"
 	"github.com/amito07/ems/internal/repository"
+	"github.com/amito07/ems/internal/structure"
+	passwordhashing "github.com/amito07/ems/internal/utils/passwordHashing"
+	"github.com/amito07/ems/internal/utils/randomfunction"
 	"github.com/amito07/ems/internal/utils/response"
 	"github.com/go-playground/validator/v10"
 	"gorm.io/gorm"
@@ -267,5 +270,117 @@ func Delete() http.HandlerFunc {
 	}
 
 	response.WriteResponse(w, http.StatusOK, "Student deleted successfully", nil)
+	}
+}
+
+// Business Logic for StudentController
+func SignUp() http.HandlerFunc {
+	controller := NewStudentController()
+	return func(w http.ResponseWriter, r *http.Request) {
+		var studentInfo structure.StudentSignupBody
+
+		err := json.NewDecoder(r.Body).Decode(&studentInfo)
+
+		if errors.Is(err, io.EOF) {
+			response.WriteResponse(w, http.StatusBadRequest, "Empty body", response.GeneralErrorResponse(err))
+			return
+		}
+		if err != nil {
+			response.WriteResponse(w, http.StatusBadRequest, "Invalid request body", response.GeneralErrorResponse(err))
+			return
+		}
+
+		fmt.Println("Student Info:", studentInfo)
+
+		//check email already exists
+		isStudentExist, err := controller.studentRepo.GetByEmail(studentInfo.Email)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			response.WriteResponse(w, http.StatusInternalServerError, "Database error", response.GeneralErrorResponse(err))
+			return
+		}
+		if isStudentExist != nil {
+			response.WriteResponse(w, http.StatusConflict, "Student with this email already exists", nil)
+			return
+		}
+
+		fmt.Println("............. Okk")
+		hashedPassword, err := passwordhashing.HashPassword(studentInfo.Password)
+		if err != nil {
+			response.WriteResponse(w, http.StatusInternalServerError, "Failed to hash password", response.GeneralErrorResponse(err))
+			return
+		}
+		fmt.Println("Hashed Password:", hashedPassword)
+
+		// Create a new student model
+		student := models.Student{
+			FirstName: studentInfo.FirstName,
+			LastName:  studentInfo.LastName,
+			Email:     studentInfo.Email,
+			S_ID:      randomfunction.GetStudentId(10),
+			Password:  hashedPassword,
+		}
+
+		// Create the student in the database
+		if err := controller.studentRepo.Create(&student); err != nil {
+			response.WriteResponse(w, http.StatusInternalServerError, "Failed to create student", response.GeneralErrorResponse(err))
+			return
+		}
+
+		// Prepare the response
+		response.WriteResponse(w, http.StatusCreated, "Student created successfully", nil)
+
+	}
+}
+
+func Login() http.HandlerFunc {
+	controller := NewStudentController()
+	return func(w http.ResponseWriter, r *http.Request) {
+		var loginInfo structure.StudentLoginBody
+
+		err := json.NewDecoder(r.Body).Decode(&loginInfo)
+		if errors.Is(err, io.EOF) {
+			response.WriteResponse(w, http.StatusBadRequest, "Empty body", response.GeneralErrorResponse(err))
+			return
+		}
+
+		if err != nil {
+			response.WriteResponse(w, http.StatusBadRequest, "Invalid request body", response.GeneralErrorResponse(err))
+			return
+		}
+
+		fmt.Println("Login Info:", loginInfo)
+
+		// Retrieve the student by email
+		student, err := controller.studentRepo.GetByEmail(loginInfo.Email)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				response.WriteResponse(w, http.StatusNotFound, "Student not found", nil)
+				return
+			}
+			response.WriteResponse(w, http.StatusInternalServerError, "Database error", response.GeneralErrorResponse(err))
+			return
+		}
+
+		fmt.Println("Found Student:", student.Password)
+		fmt.Println("Provided Password:", loginInfo.Password)
+		// Verify the password
+		if !passwordhashing.VerifyPassword(loginInfo.Password, student.Password) {
+			response.WriteResponse(w, http.StatusUnauthorized, "Invalid credentials", nil)
+			return
+		}
+
+		// generate jwt token
+		token, err := randomfunction.GenerateJwtToken(student.Email, student.S_ID)
+		if err != nil {
+			response.WriteResponse(w, http.StatusInternalServerError, "Failed to generate token", response.GeneralErrorResponse(err))
+			return
+		}
+
+		responseData := structure.StudentLoginResponse{
+			FirstName: student.FirstName,
+			Token:     token,
+		}
+
+		response.WriteResponse(w, http.StatusOK, "Login successful", responseData)
 	}
 }

@@ -15,6 +15,8 @@ func StudentMux() http.Handler {
 	studentMux.Handle("GET /{id}", student.GetByID())
 	studentMux.Handle("PATCH /update/{id}", student.Update())
 	studentMux.Handle("DELETE /delete/{id}", student.Delete())
+	studentMux.Handle("POST /signup", student.SignUp())
+	studentMux.Handle("POST /login", student.Login())
 	
 	return http.StripPrefix("/api/v1/students", studentMux)
 }
